@@ -124,6 +124,46 @@ if (isLoggedIn()) {
     }
 }
 
+// Función para obtener addons de forma segura
+function getAddonsSafely($pdo, $searchQuery = '') {
+    try {
+        if (!empty($searchQuery)) {
+            // Búsqueda con filtro
+            $stmt = $pdo->prepare("
+                SELECT a.*, u.username, u.profile_pic, u.is_verified,
+                       AVG(r.rating) as avg_rating, 
+                       COUNT(r.id) as review_count 
+                FROM addons a 
+                JOIN usuarios u ON a.user_id = u.id 
+                LEFT JOIN reviews r ON a.id = r.addon_id 
+                WHERE a.title LIKE ? OR u.username LIKE ? OR a.description LIKE ?
+                GROUP BY a.id 
+                ORDER BY a.created_at DESC
+            ");
+            $searchTerm = "%$searchQuery%";
+            $stmt->execute([$searchTerm, $searchTerm, $searchTerm]);
+        } else {
+            // Todos los addons
+            $stmt = $pdo->prepare("
+                SELECT a.*, u.username, u.profile_pic, u.is_verified,
+                       AVG(r.rating) as avg_rating, 
+                       COUNT(r.id) as review_count 
+                FROM addons a 
+                JOIN usuarios u ON a.user_id = u.id 
+                LEFT JOIN reviews r ON a.id = r.addon_id 
+                GROUP BY a.id 
+                ORDER BY a.created_at DESC
+            ");
+            $stmt->execute();
+        }
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error obteniendo addons: " . $e->getMessage());
+        return [];
+    }
+}
+
 // Función para subir archivos a Supabase
 function uploadFile($file, $path = '') {
     $errors = [];
