@@ -1,4 +1,13 @@
 <?php
+// Configuración de sesión - DEBE ir ANTES de session_start()
+ini_set('session.gc_maxlifetime', 60 * 60 * 24 * 30); // 30 días
+ini_set('session.cookie_lifetime', 60 * 60 * 24 * 30); // 30 días para la cookie de sesión
+ini_set('session.cookie_httponly', 1); // Las cookies solo accesibles por HTTP
+ini_set('session.cookie_secure', 1); // Solo enviar cookies sobre HTTPS
+ini_set('session.use_strict_mode', 1); // Modo estricto de sesiones
+ini_set('session.sid_length', 128); // Longitud del ID de sesión
+ini_set('session.sid_bits_per_character', 6); // Bits por carácter
+
 session_start();
 
 // Detectar si estamos en Vercel
@@ -57,10 +66,6 @@ define('SUPABASE_BUCKET', 'mcpixel-storage');
 // Configuración de uploads
 define('MAX_FILE_SIZE', 2 * 1024 * 1024); // 2MB
 define('ALLOWED_TYPES', ['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
-
-// Configuración de la duración de la sesión
-ini_set('session.gc_maxlifetime', 60 * 60 * 24 * 30); // 30 días
-ini_set('session.cookie_lifetime', 60 * 60 * 24 * 30); // 30 días para la cookie de sesión
 
 // Función para verificar si el usuario está logueado
 function isLoggedIn() {
