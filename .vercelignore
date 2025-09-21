@@ -1,0 +1,14 @@
+package.json
+package-lock.json
+yarn.lock
+composer.json
+composer.lock
+node_modules/
+vendor/
+.npm/
+.yarn/
+*.log
+.DS_Store
+.env
+.env.local
+vercel.json.old
