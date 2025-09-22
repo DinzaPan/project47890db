@@ -20,15 +20,11 @@
       "dest": "/uploads/$1"
     },
     {
-      "src": "/css/(.*)",
-      "dest": "/css/$1"
+      "src": "/assets/(.*)",
+      "dest": "/assets/$1"
     },
     {
-      "src": "/js/(.*)",
-      "dest": "/js/$1"
-    },
-    {
-      "src": "/(.*\\.(png|jpg|jpeg|gif|ico|svg|css|js|webp))",
+      "src": "/(.*\\.(png|jpg|jpeg|gif|ico|svg|css|js|webp|woff|woff2|ttf|eot))",
       "dest": "/$1"
     },
     {
@@ -39,8 +35,5 @@
       "src": "/(.*)",
       "dest": "/index.php"
     }
-  ],
-  "env": {
-    "APP_ENV": "production"
-  }
+  ]
 }
