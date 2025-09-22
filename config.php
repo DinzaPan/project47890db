@@ -8,10 +8,23 @@ ini_set('session.use_strict_mode', 1); // Modo estricto de sesiones
 ini_set('session.sid_length', 128); // Longitud del ID de sesión
 ini_set('session.sid_bits_per_character', 6); // Bits por carácter
 
-session_start();
-
 // Detectar si estamos en Vercel
 define('IS_VERCEL', getenv('VERCEL') === '1' || isset($_SERVER['VERCEL']));
+
+// SOLUCIÓN: Permitir acceso directo a archivos PHP específicos en Vercel
+if (IS_VERCEL && php_sapi_name() !== 'cli') {
+    $current_script = basename($_SERVER['SCRIPT_NAME']);
+    $allowed_direct_scripts = ['login.php', 'register.php', 'logout.php', 'add_addon.php', 'profile.php', 'settings.php', 'addon.php', 'search.php'];
+    
+    if (in_array($current_script, $allowed_direct_scripts)) {
+        // Si es un script permitido, iniciar sesión y continuar normalmente
+        session_start();
+        // No incluir config.php nuevamente para evitar duplicación
+        return;
+    }
+}
+
+session_start();
 
 // Configuración para Vercel - usar SQLite en /tmp
 if (IS_VERCEL) {
@@ -121,46 +134,6 @@ if (isLoggedIn()) {
         setcookie('remember_token', '', time() - 3600, '/');
         header('Location: login.php?banned=1');
         exit;
-    }
-}
-
-// Función para obtener addons de forma segura
-function getAddonsSafely($pdo, $searchQuery = '') {
-    try {
-        if (!empty($searchQuery)) {
-            // Búsqueda con filtro
-            $stmt = $pdo->prepare("
-                SELECT a.*, u.username, u.profile_pic, u.is_verified,
-                       AVG(r.rating) as avg_rating, 
-                       COUNT(r.id) as review_count 
-                FROM addons a 
-                JOIN usuarios u ON a.user_id = u.id 
-                LEFT JOIN reviews r ON a.id = r.addon_id 
-                WHERE a.title LIKE ? OR u.username LIKE ? OR a.description LIKE ?
-                GROUP BY a.id 
-                ORDER BY a.created_at DESC
-            ");
-            $searchTerm = "%$searchQuery%";
-            $stmt->execute([$searchTerm, $searchTerm, $searchTerm]);
-        } else {
-            // Todos los addons
-            $stmt = $pdo->prepare("
-                SELECT a.*, u.username, u.profile_pic, u.is_verified,
-                       AVG(r.rating) as avg_rating, 
-                       COUNT(r.id) as review_count 
-                FROM addons a 
-                JOIN usuarios u ON a.user_id = u.id 
-                LEFT JOIN reviews r ON a.id = r.addon_id 
-                GROUP BY a.id 
-                ORDER BY a.created_at DESC
-            ");
-            $stmt->execute();
-        }
-        
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Exception $e) {
-        error_log("Error obteniendo addons: " . $e->getMessage());
-        return [];
     }
 }
 
