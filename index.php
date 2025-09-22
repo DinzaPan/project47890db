@@ -1029,7 +1029,7 @@ $showFavorites = isset($_GET['view']) && $_GET['view'] === 'favorites' && isLogg
     <!-- Barra de navegación -->
     <nav class="navbar">
         <div class="logo-container">
-            <img src="./img/logo.png" alt="MCPixel Logo" class="logo">
+            <img src="/img/logo.png" alt="MCPixel Logo" class="logo">
             <h1 class="site-title">MCPixel</h1>
         </div>
         
