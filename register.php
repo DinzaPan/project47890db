@@ -22,8 +22,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_FILES['profile_pic']) || $_FILES['profile_pic']['error'] !== UPLOAD_ERR_OK) {
         $errors[] = "La foto de perfil es obligatoria";
     } else {
-        // Procesar imagen de perfil
-        list($success, $result) = uploadFile($_FILES['profile_pic'], UPLOAD_DIR);
+        // Procesar imagen de perfil - CORREGIDO: usar UPLOAD_DIR_PROFILES
+        list($success, $result) = uploadFile($_FILES['profile_pic'], UPLOAD_DIR_PROFILES);
         
         if ($success) {
             $formData['profile_pic'] = $result;
