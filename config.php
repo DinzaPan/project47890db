@@ -11,6 +11,17 @@ ini_set('session.sid_bits_per_character', 6); // Bits por carácter
 // Detectar si estamos en Vercel
 define('IS_VERCEL', getenv('VERCEL') === '1' || isset($_SERVER['VERCEL']));
 
+// Configuración de uploads - DEFINIR PRIMERO las constantes esenciales
+define('MAX_FILE_SIZE', 2 * 1024 * 1024); // 2MB
+define('ALLOWED_TYPES', ['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+define('UPLOAD_DIR_PROFILES', 'profiles'); // Directorio para imágenes de perfil
+define('UPLOAD_DIR_ADDONS', 'addons'); // Directorio para imágenes de addons
+
+// Configuración de Supabase
+define('SUPABASE_URL', 'https://dsercozkjptjmgjbfxdz.supabase.co');
+define('SUPABASE_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzZXJjb3pranB0am1namJmeGR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzMjY3NTgsImV4cCI6MjA3MzkwMjc1OH0.Ee2qiJecAfqfZrrJ8DH2u6f5HNyyUyPe3hMQLWuqiJY');
+define('SUPABASE_BUCKET', 'mcpixel-storage');
+
 // SOLUCIÓN: Permitir acceso directo a archivos PHP específicos en Vercel
 if (IS_VERCEL && php_sapi_name() !== 'cli') {
     $current_script = basename($_SERVER['SCRIPT_NAME']);
@@ -19,12 +30,11 @@ if (IS_VERCEL && php_sapi_name() !== 'cli') {
     if (in_array($current_script, $allowed_direct_scripts)) {
         // Si es un script permitido, iniciar sesión y continuar normalmente
         session_start();
-        // No incluir config.php nuevamente para evitar duplicación
-        return;
+        // NO hacer return aquí - dejar que el script continúe
     }
+} else {
+    session_start();
 }
-
-session_start();
 
 // Configuración para Vercel - usar SQLite en /tmp
 if (IS_VERCEL) {
@@ -70,17 +80,6 @@ try {
         die("Error de conexión: " . $e->getMessage());
     }
 }
-
-// Configuración de Supabase
-define('SUPABASE_URL', 'https://dsercozkjptjmgjbfxdz.supabase.co');
-define('SUPABASE_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzZXJjb3pranB0am1namJmeGR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzMjY3NTgsImV4cCI6MjA3MzkwMjc1OH0.Ee2qiJecAfqfZrrJ8DH2u6f5HNyyUyPe3hMQLWuqiJY');
-define('SUPABASE_BUCKET', 'mcpixel-storage');
-
-// Configuración de uploads
-define('MAX_FILE_SIZE', 2 * 1024 * 1024); // 2MB
-define('ALLOWED_TYPES', ['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
-define('UPLOAD_DIR_PROFILES', 'profiles'); // Directorio para imágenes de perfil
-define('UPLOAD_DIR_ADDONS', 'addons'); // Directorio para imágenes de addons
 
 // Función para verificar si el usuario está logueado
 function isLoggedIn() {
