@@ -79,6 +79,8 @@ define('SUPABASE_BUCKET', 'mcpixel-storage');
 // Configuración de uploads
 define('MAX_FILE_SIZE', 2 * 1024 * 1024); // 2MB
 define('ALLOWED_TYPES', ['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+define('UPLOAD_DIR_PROFILES', 'profiles'); // Directorio para imágenes de perfil
+define('UPLOAD_DIR_ADDONS', 'addons'); // Directorio para imágenes de addons
 
 // Función para verificar si el usuario está logueado
 function isLoggedIn() {
@@ -246,7 +248,7 @@ function deleteUser($pdo, $userId) {
         // Eliminar imágenes de addons de Supabase
         foreach ($addons as $addon) {
             if ($addon['cover_image'] !== 'default.png') {
-                deleteFile($addon['cover_image'], 'addons');
+                deleteFile($addon['cover_image'], UPLOAD_DIR_ADDONS);
             }
         }
         
@@ -262,7 +264,7 @@ function deleteUser($pdo, $userId) {
         $user = $stmt->fetch();
         
         if ($user && $user['profile_pic'] !== 'default.png') {
-            deleteFile($user['profile_pic'], 'profiles');
+            deleteFile($user['profile_pic'], UPLOAD_DIR_PROFILES);
         }
         
         // Eliminar usuario
@@ -309,7 +311,7 @@ function deleteAddon($pdo, $addonId) {
         if ($addon) {
             // Eliminar imagen de portada de Supabase
             if ($addon['cover_image'] !== 'default.png') {
-                deleteFile($addon['cover_image'], 'addons');
+                deleteFile($addon['cover_image'], UPLOAD_DIR_ADDONS);
             }
             
             // Eliminar de favoritos
