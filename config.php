@@ -138,8 +138,41 @@ if (isLoggedIn()) {
     }
 }
 
-// Función para subir archivos a Supabase
+// Función para verificar conectividad con Supabase
+function checkSupabaseConnectivity() {
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, SUPABASE_URL . '/rest/v1/');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: Bearer ' . SUPABASE_KEY,
+        'apikey: ' . SUPABASE_KEY
+    ]);
+    
+    curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+    
+    return $httpCode === 200 && empty($curlError);
+}
+
+// Variable global para controlar si usamos Supabase
+$SUPABASE_AVAILABLE = false;
+
+// Verificar conectividad al inicio (solo una vez por ejecución)
+if (!isset($GLOBALS['supabase_checked'])) {
+    $GLOBALS['supabase_checked'] = true;
+    $SUPABASE_AVAILABLE = checkSupabaseConnectivity();
+    
+    if (!$SUPABASE_AVAILABLE) {
+        error_log("Supabase no disponible. Usando sistema de archivos local.");
+    }
+}
+
+// Función para subir archivos (con respaldo local)
 function uploadFile($file, $path = '') {
+    global $SUPABASE_AVAILABLE;
     $errors = [];
     
     // Verificar errores de subida
@@ -167,64 +200,113 @@ function uploadFile($file, $path = '') {
     // Generar nombre único
     $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
     $filename = uniqid('img_', true) . '.' . $extension;
-    $fullPath = $path ? trim($path, '/') . '/' . $filename : $filename;
     
-    // Subir a Supabase usando cURL
-    $ch = curl_init();
-    
-    curl_setopt($ch, CURLOPT_URL, SUPABASE_URL . '/storage/v1/object/' . SUPABASE_BUCKET . '/' . $fullPath);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt($ch, CURLOPT_POST, 1);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, file_get_contents($file['tmp_name']));
-    
-    $headers = array();
-    $headers[] = 'Authorization: Bearer ' . SUPABASE_KEY;
-    $headers[] = 'Content-Type: ' . $mime;
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    
-    $result = curl_exec($ch);
-    if (curl_errno($ch)) {
-        $errors[] = "Error al subir a Supabase: " . curl_error($ch);
-        curl_close($ch);
-        return [false, $errors];
+    // Intentar subir a Supabase si está disponible
+    if ($SUPABASE_AVAILABLE) {
+        $fullPath = $path ? trim($path, '/') . '/' . $filename : $filename;
+        
+        $ch = curl_init();
+        
+        curl_setopt($ch, CURLOPT_URL, SUPABASE_URL . '/storage/v1/object/' . SUPABASE_BUCKET . '/' . $fullPath);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, file_get_contents($file['tmp_name']));
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        
+        $headers = array();
+        $headers[] = 'Authorization: Bearer ' . SUPABASE_KEY;
+        $headers[] = 'Content-Type: ' . $mime;
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        
+        $result = curl_exec($ch);
+        if (curl_errno($ch)) {
+            error_log("Error al subir a Supabase: " . curl_error($ch));
+            // Si falla Supabase, marcar como no disponible y usar sistema local
+            $SUPABASE_AVAILABLE = false;
+            curl_close($ch);
+            // Continuar con sistema local
+        } else {
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            
+            if ($httpCode === 200) {
+                return [true, $filename];
+            } else {
+                error_log("Error HTTP al subir a Supabase: " . $httpCode);
+                $SUPABASE_AVAILABLE = false;
+                // Continuar con sistema local
+            }
+        }
     }
     
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    // Sistema local de respaldo - guardar en el sistema de archivos
+    $localDir = __DIR__ . '/uploads/' . $path;
+    if (!file_exists($localDir)) {
+        mkdir($localDir, 0755, true);
+    }
     
-    if ($httpCode === 200) {
+    $localPath = $localDir . '/' . $filename;
+    
+    if (move_uploaded_file($file['tmp_name'], $localPath)) {
         return [true, $filename];
     } else {
-        $errors[] = "Error al subir a Supabase. Código HTTP: " . $httpCode;
+        $errors[] = "Error al guardar el archivo localmente";
         return [false, $errors];
     }
 }
 
-// Función para eliminar archivos de Supabase
+// Función para eliminar archivos (con respaldo local)
 function deleteFile($filename, $path = '') {
-    $fullPath = $path ? trim($path, '/') . '/' . $filename : $filename;
+    global $SUPABASE_AVAILABLE;
     
-    $ch = curl_init();
+    // Intentar eliminar de Supabase si está disponible
+    if ($SUPABASE_AVAILABLE) {
+        $fullPath = $path ? trim($path, '/') . '/' . $filename : $filename;
+        
+        $ch = curl_init();
+        
+        curl_setopt($ch, CURLOPT_URL, SUPABASE_URL . '/storage/v1/object/' . SUPABASE_BUCKET . '/' . $fullPath);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        
+        $headers = array();
+        $headers[] = 'Authorization: Bearer ' . SUPABASE_KEY;
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        
+        $result = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($httpCode === 200) {
+            return true;
+        } else {
+            $SUPABASE_AVAILABLE = false;
+        }
+    }
     
-    curl_setopt($ch, CURLOPT_URL, SUPABASE_URL . '/storage/v1/object/' . SUPABASE_BUCKET . '/' . $fullPath);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
+    // Sistema local de respaldo
+    $localPath = __DIR__ . '/uploads/' . $path . '/' . $filename;
+    if (file_exists($localPath)) {
+        return unlink($localPath);
+    }
     
-    $headers = array();
-    $headers[] = 'Authorization: Bearer ' . SUPABASE_KEY;
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    
-    $result = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    
-    return $httpCode === 200;
+    return true;
 }
 
-// Obtener URL pública de un archivo en Supabase
+// Obtener URL pública de un archivo (con respaldo local)
 function getFileUrl($filename, $path = '') {
-    $fullPath = $path ? trim($path, '/') . '/' . $filename : $filename;
-    return SUPABASE_URL . '/storage/v1/object/public/' . SUPABASE_BUCKET . '/' . $fullPath;
+    global $SUPABASE_AVAILABLE;
+    
+    if ($SUPABASE_AVAILABLE) {
+        $fullPath = $path ? trim($path, '/') . '/' . $filename : $filename;
+        return SUPABASE_URL . '/storage/v1/object/public/' . SUPABASE_BUCKET . '/' . $fullPath;
+    } else {
+        // URL local para desarrollo
+        $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]";
+        $localPath = 'uploads/' . $path . '/' . $filename;
+        return $baseUrl . '/' . $localPath;
+    }
 }
 
 // Establecer tema
@@ -234,7 +316,7 @@ if (isset($_COOKIE['theme'])) {
     $theme = 'dark';
 }
 
-// Funciones administrativas
+// Funciones administrativas (se mantienen igual)
 function deleteUser($pdo, $userId) {
     try {
         $pdo->beginTransaction();
@@ -244,7 +326,7 @@ function deleteUser($pdo, $userId) {
         $stmt->execute([$userId]);
         $addons = $stmt->fetchAll();
         
-        // Eliminar imágenes de addons de Supabase
+        // Eliminar imágenes de addons
         foreach ($addons as $addon) {
             if ($addon['cover_image'] !== 'default.png') {
                 deleteFile($addon['cover_image'], UPLOAD_DIR_ADDONS);
@@ -308,7 +390,7 @@ function deleteAddon($pdo, $addonId) {
         $addon = $stmt->fetch();
         
         if ($addon) {
-            // Eliminar imagen de portada de Supabase
+            // Eliminar imagen de portada
             if ($addon['cover_image'] !== 'default.png') {
                 deleteFile($addon['cover_image'], UPLOAD_DIR_ADDONS);
             }
